@@ -40,6 +40,7 @@ pub const CPU = struct {
     }
 
     pub fn run(cpu: *CPU) void {
+        cpu.registers[rz] = 0;
         if (cpu.in_pin) return;
         if (cpu.interrupt_queue.count > 0) {
             {
@@ -48,7 +49,6 @@ pub const CPU = struct {
                 for (0..16) |idx| {
                     log.err("CPU[{s}] = {X:0>16}", .{ @tagName(@as(Reg, @enumFromInt(idx))), cpu.registers[idx] });
                 }
-                // @panic("INTERRUPT");
                 if (cpu.interrupt_queue.peekItem(0) == interrupts.interrupt_overflow) @panic("Interrupt");
             }
             cpu.interrupt_ret_mode = cpu.mode;
@@ -572,24 +572,68 @@ pub const CPU = struct {
                 if (!cpu.getFlag(flags.ext_f)) {
                     return cpu.int(interrupts.invalid_operation);
                 }
+                var st_flags: instructions.ST = @bitCast(cpu.registers[st]);
+                defer cpu.registers[st] = @bitCast(st_flags);
                 switch (in.e.func) {
                     0 => {
                         const r1 = fflow(f16, cpu.registers[@intFromEnum(in.e.rs1)]);
                         const r2 = fflow(f16, cpu.registers[@intFromEnum(in.e.rs2)]);
-                        _ = r1;
-                        _ = r2;
+                        const ord = std.math.order(r1, r2);
+                        switch (ord) {
+                            .lt => {
+                                st_flags.less = true;
+                                st_flags.equal = false;
+                            },
+                            .gt => {
+                                st_flags.less = false;
+                                st_flags.equal = false;
+                            },
+                            .eq => {
+                                st_flags.less = false;
+                                st_flags.equal = true;
+                            },
+                        }
+                        st_flags.sign = r1 < 0.0;
                     },
                     1 => {
                         const r1 = fflow(f32, cpu.registers[@intFromEnum(in.e.rs1)]);
                         const r2 = fflow(f32, cpu.registers[@intFromEnum(in.e.rs2)]);
-                        _ = r1;
-                        _ = r2;
+                        const ord = std.math.order(r1, r2);
+                        switch (ord) {
+                            .lt => {
+                                st_flags.less = true;
+                                st_flags.equal = false;
+                            },
+                            .gt => {
+                                st_flags.less = false;
+                                st_flags.equal = false;
+                            },
+                            .eq => {
+                                st_flags.less = false;
+                                st_flags.equal = true;
+                            },
+                        }
+                        st_flags.sign = r1 < 0.0;
                     },
                     2 => {
                         const r1 = fflow(f64, cpu.registers[@intFromEnum(in.e.rs1)]);
                         const r2 = fflow(f64, cpu.registers[@intFromEnum(in.e.rs2)]);
-                        _ = r1;
-                        _ = r2;
+                        const ord = std.math.order(r1, r2);
+                        switch (ord) {
+                            .lt => {
+                                st_flags.less = true;
+                                st_flags.equal = false;
+                            },
+                            .gt => {
+                                st_flags.less = false;
+                                st_flags.equal = false;
+                            },
+                            .eq => {
+                                st_flags.less = false;
+                                st_flags.equal = true;
+                            },
+                        }
+                        st_flags.sign = r1 < 0.0;
                     },
                     else => return cpu.inv(),
                 }
@@ -920,6 +964,7 @@ pub const CPU = struct {
     const ip = @intFromEnum(Reg.ip);
     const sp = @intFromEnum(Reg.sp);
     const st = @intFromEnum(Reg.st);
+    const rz = @intFromEnum(Reg.rz);
 
     const interrupts = struct {
         const divide_by_zero = 0x00;
