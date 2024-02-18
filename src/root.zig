@@ -241,29 +241,14 @@ pub const CPU = struct {
                 var st_flags: instructions.ST = @bitCast(cpu.registers[st]);
                 defer cpu.registers[st] = @bitCast(st_flags);
                 const cmpu = std.math.order(r1, r2);
-                switch (cmpu) {
-                    .gt => {
-                        st_flags.equal = false;
-                        st_flags.less_unsigned = false;
-                    },
-                    .lt => {
-                        st_flags.equal = false;
-                        st_flags.less_unsigned = true;
-                    },
-                    .eq => {
-                        st_flags.equal = true;
-                        st_flags.less = false;
-                        st_flags.less_unsigned = false;
-                    },
-                }
+                st_flags.equal = (cmpu == .eq);
+                st_flags.less_unsigned = (cmpu == .lt);
+
                 const r1i: i64 = @bitCast(r1);
                 const r2i: i64 = @bitCast(r2);
                 const cmpi = std.math.order(r1i, r2i);
-                if (cmpi == .lt) {
-                    st_flags.less = true;
-                } else {
-                    st_flags.less = false;
-                }
+                st_flags.less = (cmpi == .lt);
+
                 st_flags.sign = r1i < 0;
             },
             // cmpi
@@ -275,30 +260,14 @@ pub const CPU = struct {
                 defer cpu.registers[st] = @bitCast(st_flags);
 
                 const cmpu = std.math.order(r1, r2);
-                switch (cmpu) {
-                    .gt => {
-                        st_flags.equal = false;
-                        st_flags.less_unsigned = false;
-                    },
-                    .lt => {
-                        st_flags.equal = false;
-                        st_flags.less_unsigned = true;
-                    },
-                    .eq => {
-                        st_flags.equal = true;
-                        st_flags.less = false;
-                        st_flags.less_unsigned = false;
-                    },
-                }
+                st_flags.equal = (cmpu == .eq);
+                st_flags.less_unsigned = (cmpu == .lt);
 
                 const r1i: i64 = @bitCast(r1);
                 const r2i: i64 = @bitCast(r2);
                 const cmpi = std.math.order(r1i, r2i);
-                if (cmpi == .lt) {
-                    st_flags.less = true;
-                } else {
-                    st_flags.less = false;
-                }
+                st_flags.less = (cmpi == .lt);
+
                 st_flags.sign = r1i < 0;
             },
             // addr
@@ -574,69 +543,33 @@ pub const CPU = struct {
                 }
                 var st_flags: instructions.ST = @bitCast(cpu.registers[st]);
                 defer cpu.registers[st] = @bitCast(st_flags);
-                switch (in.e.func) {
-                    0 => {
-                        const r1 = fflow(f16, cpu.registers[@intFromEnum(in.e.rs1)]);
-                        const r2 = fflow(f16, cpu.registers[@intFromEnum(in.e.rs2)]);
-                        const ord = std.math.order(r1, r2);
-                        switch (ord) {
-                            .lt => {
-                                st_flags.less = true;
-                                st_flags.equal = false;
-                            },
-                            .gt => {
-                                st_flags.less = false;
-                                st_flags.equal = false;
-                            },
-                            .eq => {
-                                st_flags.less = false;
-                                st_flags.equal = true;
-                            },
-                        }
-                        st_flags.sign = r1 < 0.0;
-                    },
-                    1 => {
-                        const r1 = fflow(f32, cpu.registers[@intFromEnum(in.e.rs1)]);
-                        const r2 = fflow(f32, cpu.registers[@intFromEnum(in.e.rs2)]);
-                        const ord = std.math.order(r1, r2);
-                        switch (ord) {
-                            .lt => {
-                                st_flags.less = true;
-                                st_flags.equal = false;
-                            },
-                            .gt => {
-                                st_flags.less = false;
-                                st_flags.equal = false;
-                            },
-                            .eq => {
-                                st_flags.less = false;
-                                st_flags.equal = true;
-                            },
-                        }
-                        st_flags.sign = r1 < 0.0;
-                    },
-                    2 => {
-                        const r1 = fflow(f64, cpu.registers[@intFromEnum(in.e.rs1)]);
-                        const r2 = fflow(f64, cpu.registers[@intFromEnum(in.e.rs2)]);
-                        const ord = std.math.order(r1, r2);
-                        switch (ord) {
-                            .lt => {
-                                st_flags.less = true;
-                                st_flags.equal = false;
-                            },
-                            .gt => {
-                                st_flags.less = false;
-                                st_flags.equal = false;
-                            },
-                            .eq => {
-                                st_flags.less = false;
-                                st_flags.equal = true;
-                            },
-                        }
-                        st_flags.sign = r1 < 0.0;
-                    },
-                    else => return cpu.inv(),
-                }
+                const r1r = cpu.registers[@intFromEnum(in.e.rs1)];
+                const r2r = cpu.registers[@intFromEnum(in.e.rs2)];
+                const ord = ord: {
+                    switch (in.e.func) {
+                        0 => {
+                            const r1 = fflow(f16, r1r);
+                            const r2 = fflow(f16, r2r);
+                            st_flags.sign = r1 < 0.0;
+                            break :ord std.math.order(r1, r2);
+                        },
+                        1 => {
+                            const r1 = fflow(f32, r1r);
+                            const r2 = fflow(f32, r2r);
+                            st_flags.sign = r1 < 0.0;
+                            break :ord std.math.order(r1, r2);
+                        },
+                        2 => {
+                            const r1 = fflow(f64, r1r);
+                            const r2 = fflow(f64, r2r);
+                            st_flags.sign = r1 < 0.0;
+                            break :ord std.math.order(r1, r2);
+                        },
+                        else => return cpu.inv(),
+                    }
+                };
+                st_flags.less = (ord == .lt);
+                st_flags.equal = (ord == .eq);
             },
             // fto
             0x41 => {
