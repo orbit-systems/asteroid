@@ -141,6 +141,14 @@ pub inline fn usr(rd: instr.Reg) u32 {
     });
 }
 
-inline fn branch(cond: BC, address: u20) u32 {
+pub inline fn outi(rd: instr.Reg, imm: u16) u32 {
+    return @bitCast(f(0x03, imm, 0, rd));
+}
+
+pub inline fn branch(cond: BC, address: u20) u32 {
     return @bitCast(b(0x0a, address, @intFromEnum(cond)));
+}
+
+pub inline fn ldi(rd: instr.Reg, imm: u16) u32 {
+    return @bitCast(f(0x10, imm, 1, rd));
 }

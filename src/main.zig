@@ -3,12 +3,21 @@ const root = @import("root.zig");
 const CPU = root.CPU;
 const IVT = root.IVT;
 const aphelion = @import("aphelion.zig");
+const log = std.log.scoped(.main_loop);
+
+fn assemble(memory: []u8, idx: usize, instr: u32) void {
+    std.mem.writeInt(u32, memory[idx..][0..4], instr, .little);
+}
 
 pub fn main() !void {
-    var memory: [30000]u8 = undefined;
-    @memset(&memory, 0xFF);
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const alloc = gpa.allocator();
+    const memory = try alloc.alloc(u8, 30_000);
+    defer alloc.free(memory);
+    @memset(memory, 0xFF);
 
-    var idx: usize = 0;
+    // var idx: usize = 0;
     // encode(
     //     &memory,
     //     idx,
@@ -21,14 +30,19 @@ pub fn main() !void {
     //         },
     //     },
     // );
-    idx += 4;
-    std.mem.writeInt(u32, (&memory)[idx..][0..4], aphelion.int(2), .little);
-    std.mem.writeInt(u32, (&memory)[16..][0..4], aphelion.iret(), .little);
+    // idx += 4;
+    // std.mem.writeInt(u32, (&memory)[idx..][0..4], aphelion.int(2), .little);
+    // std.mem.writeInt(u32, (&memory)[16..][0..4], aphelion.iret(), .little);
+    // std.mem.writeInt(u32, memory[16..][0..4], aphelion.outi(0xFF), .little);
+    assemble(memory, 16, aphelion.ldi(.ra, 0xFF));
+    assemble(memory, 20, aphelion.outi(.ra, 0xFF));
+    assemble(memory, 24, aphelion.branch(.ra, @bitCast(@as(i20, -1))));
 
     var ivt: IVT = .{};
-    var cpu = CPU.init(&memory, &ivt);
+    var cpu = CPU.init(memory, &ivt);
     while (true) {
         cpu.run();
+        log.debug("OUT: {} IN: {}\nPORT: {x} DATA: {x}", .{ cpu.out_pin, cpu.in_pin, cpu.port, cpu.data_bus });
         if (cpu.out_pin) {
             switch (cpu.port) {
                 ports.interrupt_controller => {
@@ -45,6 +59,8 @@ pub fn main() !void {
                     }
                     cpu.out_pin = false;
                 },
+                // non-standard: writing to port 0xFF is a halt
+                0xFF => break,
                 else => {},
             }
         }

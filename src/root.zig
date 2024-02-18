@@ -55,6 +55,7 @@ pub const CPU = struct {
             cpu.mode = .kernel;
             cpu.interrupt_ret = cpu.registers[ip];
             cpu.registers[ip] = cpu.ivt_conn.addr + 8 * cpu.interrupt_queue.peekItem(0);
+            cpu.interrupt_queue.discard(1);
         }
         const instr = std.mem.readInt(u32, cpu.memory[cpu.registers[ip]..][0..4], .little);
         {
@@ -86,12 +87,10 @@ pub const CPU = struct {
                 0x01 => {
                     cpu.registers[ip] = cpu.interrupt_ret;
                     cpu.mode = cpu.interrupt_ret_mode;
-                    cpu.interrupt_queue.discard(1);
                 },
                 // ires
                 0x02 => {
                     cpu.mode = cpu.interrupt_ret_mode;
-                    cpu.interrupt_queue.discard(1);
                 },
                 // usr
                 0x03 => {
